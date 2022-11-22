@@ -9,7 +9,7 @@ Point[] via_points
 
 ### Action Server Result
 
-# The reached point when the plan has been followed.
+# The final point representing the goal location when the plan has been followed.
 Point reached_point
 
 ---

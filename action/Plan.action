@@ -9,7 +9,7 @@ Point target
 
 ### Action Server Result
 
-# The plan, i.e., the `via_points` to reach the `target` given the current position.
+# The plan, i.e., the `via_points` to reach the `target`, given the current position.
 Point[] via_points
 
 ---

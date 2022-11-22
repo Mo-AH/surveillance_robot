@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>utilities.surveillance_robot.battery_helper &mdash; Surveillance Robot 0.1 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/graphviz.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> Surveillance Robot
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Surveillance Robot</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">utilities.surveillance_robot.battery_helper</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for utilities.surveillance_robot.battery_helper</h1><div class="highlight"><pre>
+<span></span><span class="ch">#! /usr/bin/env python</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">.. module:: battery_helper</span>
+<span class="sd">  :platform: Unix </span>
+<span class="sd">  :synopsis: Python module for check/recharge the battery, used by the module :mod:`smach_helper`</span>
+<span class="sd">.. moduleauthor:: Mohammad Al Horany, 5271212@studenti.unige.it</span>
+
+<span class="sd">This module implements a class to manage the battery, by providing the method to check its level and a method to recharge it.</span>
+
+<span class="sd">Subscriber of:</span>
+<span class="sd">	/state/get_battery</span>
+
+<span class="sd">Service client of:</span>
+<span class="sd">	/state/charge_battery</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="kn">import</span> <span class="nn">roslib</span>
+<span class="kn">import</span> <span class="nn">rospy</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">from</span> <span class="nn">armor_api.armor_client</span> <span class="kn">import</span> <span class="n">ArmorClient</span>
+<span class="kn">from</span> <span class="nn">os.path</span> <span class="kn">import</span> <span class="n">dirname</span><span class="p">,</span> <span class="n">realpath</span>
+<span class="kn">from</span> <span class="nn">std_msgs.msg</span> <span class="kn">import</span> <span class="n">Bool</span>
+<span class="kn">from</span> <span class="nn">std_srvs.srv</span> <span class="kn">import</span> <span class="n">SetBool</span><span class="p">,</span> <span class="n">SetBoolRequest</span>
+
+<span class="c1"># Import mutex to manage synchronization among ROS-based threads (i.e., node loop and subscribers)</span>
+<span class="kn">from</span> <span class="nn">threading</span> <span class="kn">import</span> <span class="n">Lock</span>
+
+<span class="c1">#Internal import</span>
+<span class="kn">from</span> <span class="nn">surveillance_robot</span> <span class="kn">import</span> <span class="n">architecture_name_mapper</span> <span class="k">as</span> <span class="n">anm</span>
+
+<span class="n">LOG_TAG</span> <span class="o">=</span> <span class="n">anm</span><span class="o">.</span><span class="n">NODE_SMACH_ROBOT</span>
+
+<div class="viewcode-block" id="BatteryHelper"><a class="viewcode-back" href="../../../index.html#utilities.surveillance_robot.battery_helper.BatteryHelper">[docs]</a><span class="k">class</span> <span class="nc">BatteryHelper</span><span class="p">():</span>
+	<span class="sd">&quot;&quot;&quot; A class that simplify the work of the smach_helper.</span>
+<span class="sd">	It subscribes to the `/state/get_battery` to get the change of state of the batter.</span>
+<span class="sd">	It provides methods to check the battery level and to recharge it.</span>
+
+<span class="sd">	&quot;&quot;&quot;</span>
+
+	<span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+		<span class="c1"># Initialize the mutex for synchronization</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">battery_mutex</span> <span class="o">=</span> <span class="n">Lock</span><span class="p">()</span>
+
+		<span class="c1"># Subscribe to the battery low topic and initialize the variable</span>
+		<span class="n">rospy</span><span class="o">.</span><span class="n">Subscriber</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">TOPIC_BATTERY_LOW</span><span class="p">,</span> <span class="n">Bool</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_battery_callback</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_battery_low</span> <span class="o">=</span> <span class="kc">False</span>
+
+		<span class="c1"># Create a server client to recharge the battery</span>
+		<span class="n">rospy</span><span class="o">.</span><span class="n">wait_for_service</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">SERVER_CHARGE</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">client_recharge</span> <span class="o">=</span> <span class="n">rospy</span><span class="o">.</span><span class="n">ServiceProxy</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">SERVER_CHARGE</span><span class="p">,</span> <span class="n">SetBool</span><span class="p">)</span>
+
+
+	<span class="k">def</span> <span class="nf">_battery_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;The subscriber to get messages published from the `robot-state` node into the `/state/battery_low/` topic.</span>
+<span class="sd">				</span>
+<span class="sd">				Args:</span>
+<span class="sd">					msg (Bool) : represents the battery state</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+		<span class="c1"># Get the battery level and set the relative state variable encoded in this class with the mutex</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">battery_mutex</span><span class="o">.</span><span class="n">acquire</span><span class="p">()</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_battery_low</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">data</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">battery_mutex</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+
+    
+<div class="viewcode-block" id="BatteryHelper.is_battery_low"><a class="viewcode-back" href="../../../index.html#utilities.surveillance_robot.battery_helper.BatteryHelper.is_battery_low">[docs]</a>	<span class="k">def</span> <span class="nf">is_battery_low</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;Get the state variable encoded in this class that concerns the battery level.</span>
+<span class="sd">    		</span>
+<span class="sd">    		Returns:</span>
+<span class="sd">    			bool (Bool) : `True` if the battery is low, `False` otherwise.</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+		<span class="c1"># Acquire the mutex to assure the synchronization with the other subscribers and action clients (this assure data consistency).</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">battery_mutex</span><span class="o">.</span><span class="n">acquire</span><span class="p">()</span>
+		<span class="k">try</span><span class="p">:</span>
+			<span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_battery_low</span>
+		<span class="k">finally</span><span class="p">:</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">battery_mutex</span><span class="o">.</span><span class="n">release</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="BatteryHelper.recharge"><a class="viewcode-back" href="../../../index.html#utilities.surveillance_robot.battery_helper.BatteryHelper.recharge">[docs]</a>	<span class="k">def</span> <span class="nf">recharge</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;Method used to send a request to the service that recharges the battery.</span>
+
+<span class="sd">		&quot;&quot;&quot;</span>
+		<span class="n">log_msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;[CHARGE] = Recharging...&#39;</span>
+		<span class="n">rospy</span><span class="o">.</span><span class="n">loginfo</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">tag_log</span><span class="p">(</span><span class="n">log_msg</span><span class="p">,</span> <span class="n">LOG_TAG</span><span class="p">))</span>
+
+		<span class="n">request</span> <span class="o">=</span> <span class="n">SetBoolRequest</span><span class="p">()</span>             
+		<span class="n">request</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="kc">True</span>                    
+		<span class="bp">self</span><span class="o">.</span><span class="n">client_recharge</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>  
+
+		<span class="n">log_msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;[CHARGE] = Robot fully charged!&#39;</span>
+		<span class="n">rospy</span><span class="o">.</span><span class="n">loginfo</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">tag_log</span><span class="p">(</span><span class="n">log_msg</span><span class="p">,</span> <span class="n">LOG_TAG</span><span class="p">))</span>
+
+		<span class="bp">self</span><span class="o">.</span><span class="n">battery_mutex</span><span class="o">.</span><span class="n">acquire</span><span class="p">()</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_battery_low</span> <span class="o">=</span> <span class="kc">False</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">battery_mutex</span><span class="o">.</span><span class="n">release</span><span class="p">()</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Mohammad Al Horany.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

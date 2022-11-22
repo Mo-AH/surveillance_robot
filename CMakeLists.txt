@@ -1,13 +1,17 @@
 ## Init project.
 cmake_minimum_required(VERSION 2.8.3)
-project(arch_skeleton)
+project(surveillance_robot)
 
 ## Find dependences.
 find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
+  std_srvs
   actionlib_msgs
   message_generation
+  armor
+  armor_py_api
+  smach
 )
 
 ## Uncomment if the package has a setup.py
@@ -16,9 +20,8 @@ catkin_python_setup()
 ## Generate messages in the 'msg' folder.
 add_message_files(
   FILES
-  Speech.msg
   Point.msg
-  Gesture.msg
+  DoorConnection.msg
 )
 
 ## Generate services in the 'srv' folder.
@@ -45,7 +48,7 @@ generate_messages(
 ## The catkin_package macro generates cmake config files for your package.
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES arch_skeletton
+#  LIBRARIES surveillance_robot
    CATKIN_DEPENDS message_runtime # rospy std_msgs
 #  DEPENDS system_lib
 )
@@ -59,11 +62,11 @@ include_directories(
 ## Define runnables.
 catkin_install_python(
   PROGRAMS 
-    scripts/speech.py 
-    scripts/gesture.py
+    scripts/robot_state.py
+    scripts/smach_robot.py
+    scripts/map_builder.py
     scripts/planner.py
     scripts/controller.py
-    scripts/robot_states.py
   DESTINATION 
     ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

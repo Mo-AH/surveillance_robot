@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>utilities.surveillance_robot.smach_helper &mdash; Surveillance Robot 0.1 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/graphviz.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../../index.html" class="icon icon-home"> Surveillance Robot
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Surveillance Robot</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">utilities.surveillance_robot.smach_helper</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for utilities.surveillance_robot.smach_helper</h1><div class="highlight"><pre>
+<span></span><span class="ch">#! /usr/bin/env python</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">.. module:: smach_helper</span>
+<span class="sd">  :platform: Unix </span>
+<span class="sd">  :synopsis: Python module for the helper class, used by the module :mod:`smach_robot`</span>
+<span class="sd">.. moduleauthor:: Mohammad Al Horany, 5271212@studenti.unige.it</span>
+
+<span class="sd">This module can be considered as the core of the state machine, by helping it to process its computation.</span>
+<span class="sd">It implements a specific method for every state plus some other useful method.</span>
+<span class="sd">It exchanges information with the ontology with the api provided by the `*armor_api* &lt;https://github.com/EmaroLab/armor_py_api&gt;`_ library.</span>
+<span class="sd">It simulates the robot 2D planning/motion, gets the battery state and build the topological map by interfacing with other modules:</span>
+<span class="sd">:mod:`planner`, :mod:`controller`, :mod:`robot_state`, :mod:`map_builder`</span>
+<span class="sd">	</span>
+<span class="sd">Subscriber of:</span>
+<span class="sd">	- /state/get_battery</span>
+<span class="sd">	- /map/connections</span>
+
+<span class="sd">Service client of:</span>
+<span class="sd">	- /state/set_pose</span>
+<span class="sd">	- /state/charge_battery</span>
+
+<span class="sd">Action client of:</span>
+<span class="sd">	- /motion/planner</span>
+<span class="sd">	- /motion/controller</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="kn">import</span> <span class="nn">roslib</span>
+<span class="kn">import</span> <span class="nn">rospy</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">from</span> <span class="nn">armor_api.armor_client</span> <span class="kn">import</span> <span class="n">ArmorClient</span>
+<span class="kn">from</span> <span class="nn">os.path</span> <span class="kn">import</span> <span class="n">dirname</span><span class="p">,</span> <span class="n">realpath</span>
+<span class="kn">from</span> <span class="nn">std_msgs.msg</span> <span class="kn">import</span> <span class="n">Bool</span>
+<span class="kn">from</span> <span class="nn">std_srvs.srv</span> <span class="kn">import</span> <span class="n">SetBool</span><span class="p">,</span> <span class="n">SetBoolRequest</span>
+
+<span class="c1"># Import mutex to manage synchronization</span>
+<span class="kn">from</span> <span class="nn">threading</span> <span class="kn">import</span> <span class="n">Lock</span>
+
+<span class="c1"># Internal imports</span>
+<span class="kn">from</span> <span class="nn">surveillance_robot</span> <span class="kn">import</span> <span class="n">architecture_name_mapper</span> <span class="k">as</span> <span class="n">anm</span>
+<span class="kn">from</span> <span class="nn">surveillance_robot.action_client_helper</span> <span class="kn">import</span> <span class="n">ActionClientHelper</span>
+<span class="kn">from</span> <span class="nn">surveillance_robot.msg</span> <span class="kn">import</span> <span class="n">Point</span><span class="p">,</span> <span class="n">DoorConnection</span><span class="p">,</span> <span class="n">PlanAction</span><span class="p">,</span> <span class="n">PlanGoal</span><span class="p">,</span> <span class="n">ControlAction</span><span class="p">,</span> <span class="n">ControlGoal</span>
+<span class="kn">from</span> <span class="nn">surveillance_robot.srv</span> <span class="kn">import</span> <span class="n">SetPose</span>
+
+
+<span class="n">LOG_TAG</span> <span class="o">=</span> <span class="n">anm</span><span class="o">.</span><span class="n">NODE_SMACH_ROBOT</span>
+<span class="n">LOOP_SLEEP_TIME</span> <span class="o">=</span> <span class="mf">0.3</span>
+
+
+<div class="viewcode-block" id="SmachHelper"><a class="viewcode-back" href="../../../index.html#utilities.surveillance_robot.smach_helper.SmachHelper">[docs]</a><span class="k">class</span> <span class="nc">SmachHelper</span><span class="p">():</span>
+	<span class="sd">&quot;&quot;&quot;This class is the state machine helper. It loads the ontology, initializes the robot location and 2D position, </span>
+<span class="sd">		stores useful variables and provides methods to help the state machine in controlling the robot,</span>
+<span class="sd">		both in 2D Environment and in the ontology. </span>
+<span class="sd">	</span>
+<span class="sd">	&quot;&quot;&quot;</span>
+	<span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+		<span class="c1"># Get parameters for the simulation</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">charging_time</span> <span class="o">=</span> <span class="n">rospy</span><span class="o">.</span><span class="n">get_param</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">PARAM_CHARGING_TIME</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">checking_time</span> <span class="o">=</span> <span class="n">rospy</span><span class="o">.</span><span class="n">get_param</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">PARAM_CHECKING_TIME</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+
+		<span class="c1">#-----------------------#</span>
+		<span class="c1"># 	BATTERY 						#</span>
+		<span class="c1">#-----------------------#</span>
+		<span class="c1"># Initialize the mutex for synchronization</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">battery_mutex</span> <span class="o">=</span> <span class="n">Lock</span><span class="p">()</span>
+
+		<span class="c1"># Subscribe to the battery low topic and initialize the variable</span>
+		<span class="n">rospy</span><span class="o">.</span><span class="n">Subscriber</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">TOPIC_BATTERY_LOW</span><span class="p">,</span> <span class="n">Bool</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">battery_callback</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">battery_low</span> <span class="o">=</span> <span class="kc">False</span>
+
+		<span class="c1"># Create a service client to recharge the battery</span>
+		<span class="n">rospy</span><span class="o">.</span><span class="n">wait_for_service</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">SERVER_CHARGE</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">client_recharge</span> <span class="o">=</span> <span class="n">rospy</span><span class="o">.</span><span class="n">ServiceProxy</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">SERVER_CHARGE</span><span class="p">,</span> <span class="n">SetBool</span><span class="p">)</span>
+
+		<span class="c1">#-----------------------#</span>
+		<span class="c1"># 	ONTOLOGY 						#</span>
+		<span class="c1">#-----------------------#</span>
+	  <span class="c1"># Initialize the mutex for synchronization</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">map_mutex</span> <span class="o">=</span> <span class="n">Lock</span><span class="p">()</span>
+
+	  <span class="c1"># Start the ArmorClient and loads the ontology file</span>
+		<span class="n">path</span> <span class="o">=</span> <span class="n">dirname</span><span class="p">(</span><span class="n">realpath</span><span class="p">(</span><span class="vm">__file__</span><span class="p">))</span>
+		<span class="n">path</span> <span class="o">=</span> <span class="n">path</span> <span class="o">+</span> <span class="s2">&quot;/../../ontologies/&quot;</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">armor_client</span> <span class="o">=</span> <span class="n">ArmorClient</span><span class="p">(</span><span class="s2">&quot;surveillance_robot&quot;</span><span class="p">,</span> <span class="s2">&quot;reference&quot;</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">armor_client</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">load_ref_from_file</span><span class="p">(</span><span class="n">path</span> <span class="o">+</span> <span class="n">anm</span><span class="o">.</span><span class="n">ONTOLOGY_FILENAME</span><span class="p">,</span> <span class="n">anm</span><span class="o">.</span><span class="n">ONTOLOGY_IRI</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;PELLET&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">armor_client</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">mount_on_ref</span><span class="p">()</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">armor_client</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">set_log_to_terminal</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+
+		<span class="c1"># Variables of the ontology map</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">locations_list</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">corridors_list</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">doors_list</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">current_location</span> <span class="o">=</span> <span class="n">anm</span><span class="o">.</span><span class="n">STARTING_LOCATION</span> 
+		<span class="bp">self</span><span class="o">.</span><span class="n">target_location</span> <span class="o">=</span> <span class="kc">None</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">urgent_locations</span> <span class="o">=</span> <span class="p">[]</span>
+
+		<span class="c1"># Subscribe to the map/connections topic to get informations about the map</span>
+		<span class="n">rospy</span><span class="o">.</span><span class="n">Subscriber</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">TOPIC_CONNECTIONS</span><span class="p">,</span> <span class="n">DoorConnection</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">map_callback</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">map_built</span> <span class="o">=</span> <span class="kc">False</span>
+		
+		<span class="c1">#-----------------------#</span>
+		<span class="c1"># 	2D ENVIRONMENT		#</span>
+		<span class="c1">#-----------------------#</span>
+		<span class="c1"># Get the environment size and set the initial 2D pose of the robot</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">environment_size</span> <span class="o">=</span> <span class="n">rospy</span><span class="o">.</span><span class="n">get_param</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">PARAM_ENVIRONMENT_SIZE</span><span class="p">,</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">])</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">initial_pose</span> <span class="o">=</span> <span class="n">rospy</span><span class="o">.</span><span class="n">get_param</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">PARAM_INITIAL_POSE</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">initial_point</span> <span class="o">=</span> <span class="n">Point</span><span class="p">()</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">initial_point</span><span class="o">.</span><span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_pose</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">initial_point</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_pose</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">init_robot_pose</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">initial_point</span><span class="p">)</span>
+
+    <span class="c1"># Define the clients for the the plan and control action servers.</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">planner_client</span> <span class="o">=</span> <span class="n">ActionClientHelper</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">ACTION_PLANNER</span><span class="p">,</span> <span class="n">PlanAction</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">controller_client</span> <span class="o">=</span> <span class="n">ActionClientHelper</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">ACTION_CONTROLLER</span><span class="p">,</span> <span class="n">ControlAction</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="SmachHelper.build_map"><a class="viewcode-back" href="../../../index.html#utilities.surveillance_robot.smach_helper.SmachHelper.build_map">[docs]</a>	<span class="k">def</span> <span class="nf">build_map</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot; Method paired with BUILD_MAP state.</span>
+<span class="sd">			It assert the robot initial location, then waits for the map information.</span>
+<span class="sd">			Once map has been built, it disjoints all the individuals, initializes the timer of locations and the urgency threshold. </span>
+<span class="sd">			It uses, from the architecture_name_mapper file:</span>
+
+<span class="sd">			- ROBOT_NAME: the name of the robot</span>
+<span class="sd">			</span>
+<span class="sd">			- URGENCY_THRESHOLD: the threshold of urgency, after which a location becomes URGENT</span>
+<span class="sd">		</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+
+		<span class="c1"># Assert the robot initial location</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">armor_client</span><span class="o">.</span><span class="n">manipulation</span><span class="o">.</span><span class="n">add_objectprop_to_ind</span><span class="p">(</span><span class="s1">&#39;isIn&#39;</span><span class="p">,</span> <span class="n">anm</span><span class="o">.</span><span class="n">ROBOT_NAME</span><span class="p">,</span> <span class="n">anm</span><span class="o">.</span><span class="n">STARTING_LOCATION</span><span class="p">)</span>
+		<span class="n">log_msg</span> <span class="o">=</span> <span class="p">(</span><span class="sa">f</span><span class="s1">&#39;[BUILD_MAP] = ROBOT </span><span class="si">{</span><span class="n">anm</span><span class="o">.</span><span class="n">ROBOT_NAME</span><span class="si">}</span><span class="s1"> spawned in ROOM </span><span class="si">{</span><span class="n">anm</span><span class="o">.</span><span class="n">STARTING_LOCATION</span><span class="si">}</span><span class="s1">,&#39;</span> <span class="o">+</span>
+					<span class="s1">&#39; waiting for the information to build the map.&#39;</span><span class="p">)</span>
+		<span class="n">rospy</span><span class="o">.</span><span class="n">loginfo</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">tag_log</span><span class="p">(</span><span class="n">log_msg</span><span class="p">,</span> <span class="n">LOG_TAG</span><span class="p">))</span>
+
+
+		<span class="c1"># Loop for checking in the map builder has finished publishing connections </span>
+		<span class="k">while</span> <span class="ow">not</span> <span class="n">rospy</span><span class="o">.</span><span class="n">is_shutdown</span><span class="p">():</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">map_mutex</span><span class="o">.</span><span class="n">acquire</span><span class="p">()</span>
+			<span class="k">try</span><span class="p">:</span>
+
+				<span class="c1"># Verify if all the connections has been published</span>
+				<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">map_built</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+				
+					<span class="c1"># Disjoint all the individuals</span>
+					<span class="bp">self</span><span class="o">.</span><span class="n">armor_client</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="s1">&#39;DISJOINT&#39;</span><span class="p">,</span> <span class="s1">&#39;IND&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">locations_list</span><span class="o">+</span><span class="bp">self</span><span class="o">.</span><span class="n">doors_list</span><span class="o">+</span><span class="p">[</span><span class="n">anm</span><span class="o">.</span><span class="n">ROBOT_NAME</span><span class="p">])</span>
+
+					<span class="c1"># Initialize the timer of the locations and of the robot</span>
+					<span class="n">starting_time</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()))</span>
+					<span class="k">for</span> <span class="n">location</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">locations_list</span><span class="p">:</span>
+						<span class="k">if</span> <span class="n">location</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">anm</span><span class="o">.</span><span class="n">CHARGING_LOCATION</span><span class="p">:</span>
+							<span class="bp">self</span><span class="o">.</span><span class="n">armor_client</span><span class="o">.</span><span class="n">manipulation</span><span class="o">.</span><span class="n">add_dataprop_to_ind</span><span class="p">(</span><span class="s2">&quot;visitedAt&quot;</span><span class="p">,</span> <span class="n">location</span><span class="p">,</span> <span class="s2">&quot;Long&quot;</span><span class="p">,</span> <span class="n">starting_time</span><span class="p">)</span>
+
+					<span class="bp">self</span><span class="o">.</span><span class="n">armor_client</span><span class="o">.</span><span class="n">manipulation</span><span class="o">.</span><span class="n">add_dataprop_to_ind</span><span class="p">(</span><span class="s2">&quot;now&quot;</span><span class="p">,</span> <span class="n">anm</span><span class="o">.</span><span class="n">ROBOT_NAME</span><span class="p">,</span> <span class="s2">&quot;Long&quot;</span><span class="p">,</span> <span class="n">starting_time</span><span class="p">)</span>
+					<span class="bp">self</span><span class="o">.</span><span class="n">last_move_time</span> <span class="o">=</span> <span class="n">starting_time</span>
+
+					<span class="c1"># Initialize the urgency threshold of the robot</span>
+					<span class="bp">self</span><span class="o">.</span><span class="n">armor_client</span><span class="o">.</span><span class="n">manipulation</span><span class="o">.</span><span class="n">add_dataprop_to_ind</span><span class="p">(</span><span class="s2">&quot;urgencyThreshold&quot;</span><span class="p">,</span> <span class="n">anm</span><span class="o">.</span><span class="n">ROBOT_NAME</span><span class="p">,</span> <span class="s2">&quot;Long&quot;</span><span class="p">,</span> <span class="n">anm</span><span class="o">.</span><span class="n">URGENCY_THRESHOLD</span><span class="p">)</span>
+
+					<span class="c1"># Apply changes and calls the ontology-reasoner</span>
+					<span class="bp">self</span><span class="o">.</span><span class="n">update_ontology</span><span class="p">()</span>
+
+					<span class="c1"># Save the corridors list to avoid future queries</span>
+					<span class="bp">self</span><span class="o">.</span><span class="n">corridors_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_query</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">armor_client</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">ind_b2_class</span><span class="p">(</span><span class="s1">&#39;CORRIDOR&#39;</span><span class="p">),</span> <span class="s1">&#39;LOCATION&#39;</span><span class="p">)</span>
+
+					<span class="k">break</span><span class="p">;</span>
+					
+			<span class="k">finally</span><span class="p">:</span>
+				<span class="bp">self</span><span class="o">.</span><span class="n">map_mutex</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+
+			<span class="n">rospy</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">LOOP_SLEEP_TIME</span><span class="p">)</span></div>
+
+		
+
+
+
+<div class="viewcode-block" id="SmachHelper.decide_next_location"><a class="viewcode-back" href="../../../index.html#utilities.surveillance_robot.smach_helper.SmachHelper.decide_next_location">[docs]</a>	<span class="k">def</span> <span class="nf">decide_next_location</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot; Method paired with the REASONER state.</span>
+
+<span class="sd">			It decides the next location by querying the ontology. The policy of the decision is the following:</span>
+<span class="sd">				- If battery_low, next_location = charging location</span>
+<span class="sd">				- If urgent locations nearby, next_location = most urgent reachable location</span>
+<span class="sd">				- Else, next_location = random CORRIDOR among the reachable</span>
+
+<span class="sd">		    Returns:</span>
+<span class="sd">		    	next_location(str): location to reach</span>
+
+<span class="sd">		&quot;&quot;&quot;</span>
+		<span class="c1"># If the battery is low, go to room E</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">battery_mutex</span><span class="o">.</span><span class="n">acquire</span><span class="p">()</span>
+		<span class="k">try</span><span class="p">:</span>
+
+			<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_battery_low</span><span class="p">:</span>
+				<span class="k">return</span> <span class="n">anm</span><span class="o">.</span><span class="n">CHARGING_LOCATION</span>
+
+		<span class="k">finally</span><span class="p">:</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">battery_mutex</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+
+		<span class="c1"># Get reachable rooms</span>
+		<span class="n">reachable_locations</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_query</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">armor_client</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">objectprop_b2_ind</span><span class="p">(</span><span class="s2">&quot;canReach&quot;</span><span class="p">,</span> <span class="n">anm</span><span class="o">.</span><span class="n">ROBOT_NAME</span><span class="p">),</span> <span class="s2">&quot;LOCATION&quot;</span><span class="p">)</span>
+		<span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">reachable_locations</span><span class="p">)</span>
+
+		<span class="n">log_msg</span> <span class="o">=</span> <span class="p">(</span><span class="sa">f</span><span class="s1">&#39;[REACH-LOCATION / REASONER] = From here, I can reach </span><span class="si">{</span><span class="n">reachable_locations</span><span class="si">}</span><span class="s1">.&#39;</span><span class="p">)</span>
+		<span class="n">rospy</span><span class="o">.</span><span class="n">loginfo</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">tag_log</span><span class="p">(</span><span class="n">log_msg</span><span class="p">,</span> <span class="n">LOG_TAG</span><span class="p">))</span>
+
+		<span class="c1"># If there are urgent rooms nearby, go to the most urgent</span>
+		<span class="n">next_location</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_most_urgent</span><span class="p">(</span><span class="n">reachable_locations</span><span class="p">)</span>
+		<span class="k">if</span> <span class="n">next_location</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">next_location</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">anm</span><span class="o">.</span><span class="n">CHARGING_LOCATION</span><span class="p">:</span>
+			<span class="n">log_msg</span> <span class="o">=</span> <span class="p">(</span><span class="sa">f</span><span class="s1">&#39;[REACH-LOCATION / REASONER] = Urgent room </span><span class="si">{</span><span class="n">next_location</span><span class="si">}</span><span class="s1">!! Ill go there.&#39;</span><span class="p">)</span>
+			<span class="n">rospy</span><span class="o">.</span><span class="n">loginfo</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">tag_log</span><span class="p">(</span><span class="n">log_msg</span><span class="p">,</span> <span class="n">LOG_TAG</span><span class="p">))</span>
+			<span class="k">return</span> <span class="n">next_location</span>
+
+    <span class="c1"># Otherwise go to a corridor</span>
+		<span class="k">else</span><span class="p">:</span>
+			<span class="k">for</span> <span class="n">location</span> <span class="ow">in</span> <span class="n">reachable_locations</span><span class="p">:</span>
+				<span class="k">if</span> <span class="n">location</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">corridors_list</span> <span class="ow">and</span> <span class="n">location</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">anm</span><span class="o">.</span><span class="n">CHARGING_LOCATION</span><span class="p">:</span>
+					<span class="n">log_msg</span> <span class="o">=</span> <span class="p">(</span><span class="sa">f</span><span class="s1">&#39;[REACH-LOCATION / REASONER] = No urgent locations here, Ill go in CORRIDOR </span><span class="si">{</span><span class="n">location</span><span class="si">}</span><span class="s1">.&#39;</span><span class="p">)</span>
+					<span class="n">rospy</span><span class="o">.</span><span class="n">loginfo</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">tag_log</span><span class="p">(</span><span class="n">log_msg</span><span class="p">,</span> <span class="n">LOG_TAG</span><span class="p">))</span>
+					<span class="k">return</span> <span class="n">location</span></div>
+
+
+<div class="viewcode-block" id="SmachHelper.get_most_urgent"><a class="viewcode-back" href="../../../index.html#utilities.surveillance_robot.smach_helper.SmachHelper.get_most_urgent">[docs]</a>	<span class="k">def</span> <span class="nf">get_most_urgent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reachable_locations</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot; This method is used by `decide_next_location()` and it returns the most urgent location among the ones given in input, if any, otherwhise it returns False.</span>
+
+<span class="sd">		    Args:</span>
+<span class="sd">		    	reachable_locations (str[]): The list of reachable locations</span>
+<span class="sd">		  </span>
+<span class="sd">		    Returns:</span>
+<span class="sd">		    	most_urgent_location(str): The most urgent location among the reachable ones; if none of them are URGENT,</span>
+<span class="sd">		    								this is None.</span>
+<span class="sd">		</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+
+		<span class="c1"># Get the urgent locations</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">urgent_locations</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_query</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">armor_client</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">ind_b2_class</span><span class="p">(</span><span class="s1">&#39;URGENT&#39;</span><span class="p">),</span> <span class="s2">&quot;LOCATION&quot;</span><span class="p">)</span>
+
+		<span class="c1"># Get the intersection among REACHABLE and URGENT locations</span>
+		<span class="n">urgent_reachable_locations</span> <span class="o">=</span> <span class="p">[</span><span class="n">location</span> <span class="k">for</span> <span class="n">location</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">urgent_locations</span> <span class="k">if</span> <span class="n">location</span> <span class="ow">in</span> <span class="n">reachable_locations</span><span class="p">]</span>
+
+		<span class="c1"># If there are not reachable urgent locations urgent, return None </span>
+		<span class="k">if</span> <span class="ow">not</span> <span class="n">urgent_reachable_locations</span><span class="p">:</span>
+			<span class="k">return</span> <span class="kc">None</span>
+
+		<span class="c1"># Return the most urgent among the reachable urgent locations</span>
+		<span class="n">last_visit</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+		<span class="n">most_urgent_location</span> <span class="o">=</span> <span class="n">urgent_reachable_locations</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+		<span class="k">for</span> <span class="n">location</span> <span class="ow">in</span> <span class="n">urgent_reachable_locations</span><span class="p">:</span>
+				<span class="n">query</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">format_query</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">armor_client</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">dataprop_b2_ind</span><span class="p">(</span><span class="s2">&quot;visitedAt&quot;</span><span class="p">,</span> <span class="n">location</span><span class="p">),</span> <span class="s2">&quot;TIMESTAMP&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+				<span class="k">if</span> <span class="n">last_visit</span> <span class="o">&gt;</span> <span class="n">query</span><span class="p">:</span>
+					<span class="n">most_urgent_location</span> <span class="o">=</span> <span class="n">location</span>
+					<span class="n">last_visit</span> <span class="o">=</span> <span class="n">query</span>
+		<span class="k">return</span> <span class="n">most_urgent_location</span></div>
+
+
+
+<div class="viewcode-block" id="SmachHelper.get_plan_to_goal"><a class="viewcode-back" href="../../../index.html#utilities.surveillance_robot.smach_helper.SmachHelper.get_plan_to_goal">[docs]</a>	<span class="k">def</span> <span class="nf">get_plan_to_goal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">goal_location</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot; Method paired with the PLANNER state.</span>
+<span class="sd">			It simulates the planning by calling the `planner` action-server and verifying the battery level in the meanwhile.</span>
+<span class="sd">		   </span>
+<span class="sd">		    Args:</span>
+<span class="sd">		    	goal_location (str): The goal location to reach</span>
+
+<span class="sd">		    Returns:</span>
+<span class="sd">		    	plan_viapoints(Point[]): List of points of the plan; if battery got low, this is simply False.</span>
+<span class="sd">		</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+		<span class="c1"># Reset the state of previous stimuli to assure that only the new stimulus are considered.</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">planner_client</span><span class="o">.</span><span class="n">reset_client_states</span><span class="p">()</span>
+
+    <span class="c1"># Call the planning action goal for computing the via-points toward the goal location.</span>
+		<span class="n">goal</span> <span class="o">=</span> <span class="n">PlanGoal</span><span class="p">()</span>
+		<span class="n">goal</span><span class="o">.</span><span class="n">target</span> <span class="o">=</span> <span class="n">Point</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">environment_size</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+							<span class="n">y</span><span class="o">=</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">environment_size</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+
+		<span class="bp">self</span><span class="o">.</span><span class="n">planner_client</span><span class="o">.</span><span class="n">send_goal</span><span class="p">(</span><span class="n">goal</span><span class="p">)</span>
+    
+    <span class="c1"># Wait for the result checking if the battery get low</span>
+		<span class="k">while</span> <span class="ow">not</span> <span class="n">rospy</span><span class="o">.</span><span class="n">is_shutdown</span><span class="p">():</span>
+
+      <span class="c1"># Acquire the mutex to assure data consistencies with the ROS subscription threads managed by `self._helper`.</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">battery_mutex</span><span class="o">.</span><span class="n">acquire</span><span class="p">()</span>
+			<span class="k">try</span><span class="p">:</span>
+
+        <span class="c1"># If the battery is low, then cancel the planning action server and return False</span>
+				<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_battery_low</span> <span class="ow">and</span> <span class="n">goal_location</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">anm</span><span class="o">.</span><span class="n">CHARGING_LOCATION</span><span class="p">:</span>  <span class="c1"># Higher priority</span>
+					<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">planner_client</span><span class="o">.</span><span class="n">is_running</span><span class="p">():</span>
+						<span class="bp">self</span><span class="o">.</span><span class="n">planner_client</span><span class="o">.</span><span class="n">cancel_goals</span><span class="p">()</span>
+					<span class="k">return</span> <span class="kc">False</span>
+
+
+        <span class="c1"># If the planner finishes its computation, then return the viapoints computed</span>
+				<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">planner_client</span><span class="o">.</span><span class="n">is_done</span><span class="p">():</span>
+					<span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">planner_client</span><span class="o">.</span><span class="n">get_results</span><span class="p">()</span><span class="o">.</span><span class="n">via_points</span>
+
+
+			<span class="k">finally</span><span class="p">:</span>
+
+      	<span class="c1"># Release the mutex</span>
+				<span class="bp">self</span><span class="o">.</span><span class="n">battery_mutex</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+
+      <span class="c1"># Wait for a reasonably small amount of time to allow processing stimulus (eventually).</span>
+			<span class="n">rospy</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">LOOP_SLEEP_TIME</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SmachHelper.move_robot"><a class="viewcode-back" href="../../../index.html#utilities.surveillance_robot.smach_helper.SmachHelper.move_robot">[docs]</a>	<span class="k">def</span> <span class="nf">move_robot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">plan_viapoints</span><span class="p">,</span> <span class="n">new_location</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;Method paired with the CONTROLLER state.</span>
+<span class="sd">			It simulates the motion by calling the `controller` action-server and verifying the battery level in the meanwhile.</span>
+<span class="sd">			Once arrived, it updates the robot location in the ontology (&quot;isIn&quot; object prop.) and the last time it moved (&quot;now&quot; data prop.)</span>
+
+<span class="sd">		    Args:</span>
+<span class="sd">					plan_viapoints (Point[]): The planned viapoint to reach the goal location.</span>
+<span class="sd">		    	goal_location (str): The goal location</span>
+
+<span class="sd">		    Returns:</span>
+<span class="sd">		    	bool(Bool): True if it finishes correctly, False if battery got low</span>
+<span class="sd">		</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+
+		<span class="c1"># Reset the state of previous stimuli to assure that only the new stimulus are considered.</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">controller_client</span><span class="o">.</span><span class="n">reset_client_states</span><span class="p">()</span>
+
+    <span class="c1"># Start the action server for moving the robot through the planned via-points.</span>
+		<span class="n">goal</span> <span class="o">=</span> <span class="n">ControlGoal</span><span class="p">(</span><span class="n">via_points</span><span class="o">=</span><span class="n">plan_viapoints</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">controller_client</span><span class="o">.</span><span class="n">send_goal</span><span class="p">(</span><span class="n">goal</span><span class="p">)</span>
+
+    <span class="c1"># Wait for the action server computation and listen possible incoming stimulus.</span>
+		<span class="k">while</span> <span class="ow">not</span> <span class="n">rospy</span><span class="o">.</span><span class="n">is_shutdown</span><span class="p">():</span>
+
+      <span class="c1"># Acquire the mutex to assure data consistencies</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">battery_mutex</span><span class="o">.</span><span class="n">acquire</span><span class="p">()</span>
+			<span class="k">try</span><span class="p">:</span>
+
+				<span class="c1"># If the battery is low, then cancel the control action goal and return False</span>
+				<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_battery_low</span> <span class="ow">and</span> <span class="n">new_location</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">anm</span><span class="o">.</span><span class="n">CHARGING_LOCATION</span><span class="p">:</span>  <span class="c1"># Higher priority</span>
+					<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">controller_client</span><span class="o">.</span><span class="n">is_running</span><span class="p">():</span>
+						<span class="bp">self</span><span class="o">.</span><span class="n">controller_client</span><span class="o">.</span><span class="n">cancel_goals</span><span class="p">()</span>
+					<span class="k">return</span> <span class="kc">False</span>
+
+        <span class="c1"># If the controller finishes its computation, then break to update the position in the ontology</span>
+				<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">controller_client</span><span class="o">.</span><span class="n">is_done</span><span class="p">():</span>
+					<span class="k">break</span><span class="p">;</span>
+
+			<span class="k">finally</span><span class="p">:</span>
+                
+        <span class="c1"># Release the mutex</span>
+				<span class="bp">self</span><span class="o">.</span><span class="n">battery_mutex</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+
+      <span class="c1"># Wait for a reasonably small amount of time to allow the processing of battery state change</span>
+			<span class="n">rospy</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">LOOP_SLEEP_TIME</span><span class="p">)</span>
+
+		<span class="c1"># Update the robot location in the ontology (&quot;isIn&quot; object prop.) and the last time it moved (&quot;now&quot; data prop.)</span>
+		<span class="n">move_time_new</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()))</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">armor_client</span><span class="o">.</span><span class="n">manipulation</span><span class="o">.</span><span class="n">replace_objectprop_b2_ind</span><span class="p">(</span><span class="s2">&quot;isIn&quot;</span><span class="p">,</span> <span class="n">anm</span><span class="o">.</span><span class="n">ROBOT_NAME</span><span class="p">,</span> <span class="n">new_location</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_location</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">current_location</span> <span class="o">=</span> <span class="n">new_location</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">armor_client</span><span class="o">.</span><span class="n">manipulation</span><span class="o">.</span><span class="n">replace_dataprop_b2_ind</span><span class="p">(</span><span class="s2">&quot;now&quot;</span><span class="p">,</span> <span class="n">anm</span><span class="o">.</span><span class="n">ROBOT_NAME</span><span class="p">,</span> <span class="s2">&quot;Long&quot;</span><span class="p">,</span> <span class="n">move_time_new</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_move_time</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">last_move_time</span> <span class="o">=</span> <span class="n">move_time_new</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">update_ontology</span><span class="p">()</span>
+
+		<span class="k">return</span> <span class="kc">True</span></div>
+
+	
+<div class="viewcode-block" id="SmachHelper.check_location"><a class="viewcode-back" href="../../../index.html#utilities.surveillance_robot.smach_helper.SmachHelper.check_location">[docs]</a>	<span class="k">def</span> <span class="nf">check_location</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">location</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;Method paired with the CHECK_LOCATION state. It simulates the checking by wasting time and verifying the</span>
+<span class="sd">			battery level in the meanwhile.</span>
+
+<span class="sd">		    Args:</span>
+<span class="sd">		    	location (str[]): The location to check</span>
+
+<span class="sd">		    Returns:</span>
+<span class="sd">		    	bool (Bool): True if it finishes correctly, False if battery got low</span>
+<span class="sd">		</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+
+		<span class="c1"># Simulate the checking by wasting time and checking the battery in the meanwhile</span>
+		<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+			<span class="c1"># Acquire mutex for synchronization</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">battery_mutex</span><span class="o">.</span><span class="n">acquire</span><span class="p">()</span>
+			<span class="k">try</span><span class="p">:</span>
+
+				<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_battery_low</span><span class="p">:</span>
+					<span class="k">return</span> <span class="kc">False</span>
+
+			<span class="k">finally</span><span class="p">:</span>
+				<span class="bp">self</span><span class="o">.</span><span class="n">battery_mutex</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+		
+			<span class="n">rospy</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">checking_time</span><span class="o">/</span><span class="mi">10</span><span class="p">)</span>
+		
+		<span class="c1"># Update the &quot;visitedAt&quot; data property of the location when check is finished</span>
+		<span class="n">new_visit_time</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()))</span>
+		<span class="n">last_visit_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_query</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">armor_client</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">dataprop_b2_ind</span><span class="p">(</span><span class="s1">&#39;visitedAt&#39;</span><span class="p">,</span> <span class="n">location</span><span class="p">),</span> <span class="s2">&quot;TIMESTAMP&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">armor_client</span><span class="o">.</span><span class="n">manipulation</span><span class="o">.</span><span class="n">replace_dataprop_b2_ind</span><span class="p">(</span><span class="s1">&#39;visitedAt&#39;</span><span class="p">,</span> <span class="n">location</span><span class="p">,</span> <span class="s1">&#39;Long&#39;</span><span class="p">,</span> <span class="n">new_visit_time</span><span class="p">,</span> <span class="n">last_visit_time</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">update_ontology</span><span class="p">()</span>
+
+		<span class="k">return</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="SmachHelper.recharge"><a class="viewcode-back" href="../../../index.html#utilities.surveillance_robot.smach_helper.SmachHelper.recharge">[docs]</a>	<span class="k">def</span> <span class="nf">recharge</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;Method used to send a request to the service that recharges the battery.</span>
+
+<span class="sd">		&quot;&quot;&quot;</span>
+		<span class="n">log_msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;[CHARGE] = Recharging...&#39;</span>
+		<span class="n">rospy</span><span class="o">.</span><span class="n">loginfo</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">tag_log</span><span class="p">(</span><span class="n">log_msg</span><span class="p">,</span> <span class="n">LOG_TAG</span><span class="p">))</span>
+
+		<span class="n">request</span> <span class="o">=</span> <span class="n">SetBoolRequest</span><span class="p">()</span>             
+		<span class="n">request</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="kc">True</span>                    
+		<span class="bp">self</span><span class="o">.</span><span class="n">client_recharge</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>  
+
+		<span class="n">log_msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;[CHARGE] = Robot fully charged!&#39;</span>
+		<span class="n">rospy</span><span class="o">.</span><span class="n">loginfo</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">tag_log</span><span class="p">(</span><span class="n">log_msg</span><span class="p">,</span> <span class="n">LOG_TAG</span><span class="p">))</span>
+
+		<span class="bp">self</span><span class="o">.</span><span class="n">battery_mutex</span><span class="o">.</span><span class="n">acquire</span><span class="p">()</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_battery_low</span> <span class="o">=</span> <span class="kc">False</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">battery_mutex</span><span class="o">.</span><span class="n">release</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="SmachHelper.update_ontology"><a class="viewcode-back" href="../../../index.html#utilities.surveillance_robot.smach_helper.SmachHelper.update_ontology">[docs]</a>	<span class="k">def</span> <span class="nf">update_ontology</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;Method to apply the changes in the buffer and to synchronyze the reasoner.</span>
+<span class="sd">			It is not protected by mutex because it is called always by the manipulations methods</span>
+<span class="sd">			that already have the mutex.</span>
+<span class="sd">		</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">armor_client</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">apply_buffered_changes</span><span class="p">()</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">armor_client</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">sync_buffered_reasoner</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="SmachHelper.battery_callback"><a class="viewcode-back" href="../../../index.html#utilities.surveillance_robot.smach_helper.SmachHelper.battery_callback">[docs]</a>	<span class="k">def</span> <span class="nf">battery_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;The subscriber of the `/state/battery_low/` topic.</span>
+<span class="sd">		It acquires the changes of states of the battery.</span>
+<span class="sd">				</span>
+<span class="sd">				Args:</span>
+<span class="sd">					msg (Bool) : represents the battery state</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+		<span class="c1"># Get the battery level and set the relative state variable encoded in this class with the mutex</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">battery_mutex</span><span class="o">.</span><span class="n">acquire</span><span class="p">()</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">_battery_low</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">data</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">battery_mutex</span><span class="o">.</span><span class="n">release</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="SmachHelper.map_callback"><a class="viewcode-back" href="../../../index.html#utilities.surveillance_robot.smach_helper.SmachHelper.map_callback">[docs]</a>	<span class="k">def</span> <span class="nf">map_callback</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;The subscriber callback of the `/state/battery_low/` topic.</span>
+<span class="sd">		It receive connection pairs of LOCATION/DOOR, and adds them to the ontology </span>
+<span class="sd">				</span>
+<span class="sd">				Args:</span>
+<span class="sd">					msg (DoorConnection) : represents the connection between a DOOR and a LOCATION</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+		<span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">door</span><span class="p">:</span>
+			<span class="c1"># Adds the connection to the ontology</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">armor_client</span><span class="o">.</span><span class="n">manipulation</span><span class="o">.</span><span class="n">add_objectprop_to_ind</span><span class="p">(</span><span class="s2">&quot;hasDoor&quot;</span><span class="p">,</span> <span class="n">msg</span><span class="o">.</span><span class="n">location</span><span class="p">,</span> <span class="n">msg</span><span class="o">.</span><span class="n">door</span><span class="p">)</span>
+			
+			<span class="c1"># Store the location and door list</span>
+			<span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">location</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">locations_list</span><span class="p">:</span>
+				<span class="bp">self</span><span class="o">.</span><span class="n">locations_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">location</span><span class="p">)</span>
+			<span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">door</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">doors_list</span><span class="p">:</span>	
+					<span class="bp">self</span><span class="o">.</span><span class="n">doors_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">door</span><span class="p">)</span>
+
+			<span class="c1"># Log message</span>
+			<span class="n">log_msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;[BUILD_MAP] = Connection acquired: Location </span><span class="si">{</span><span class="n">msg</span><span class="o">.</span><span class="n">location</span><span class="si">}</span><span class="s1"> has Door </span><span class="si">{</span><span class="n">msg</span><span class="o">.</span><span class="n">door</span><span class="si">}</span><span class="s1"> + &#39;</span>
+			<span class="n">rospy</span><span class="o">.</span><span class="n">loginfo</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">tag_log</span><span class="p">(</span><span class="n">log_msg</span><span class="p">,</span> <span class="n">LOG_TAG</span><span class="p">))</span>
+
+		<span class="c1"># The empty message represents the end of the acquiring process</span>
+		<span class="k">else</span><span class="p">:</span>
+
+			<span class="bp">self</span><span class="o">.</span><span class="n">map_mutex</span><span class="o">.</span><span class="n">acquire</span><span class="p">()</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">map_built</span> <span class="o">=</span> <span class="kc">True</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">map_mutex</span><span class="o">.</span><span class="n">release</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="SmachHelper.format_query"><a class="viewcode-back" href="../../../index.html#utilities.surveillance_robot.smach_helper.SmachHelper.format_query">[docs]</a>	<span class="nd">@staticmethod</span>
+	<span class="k">def</span> <span class="nf">format_query</span><span class="p">(</span><span class="n">old_list</span><span class="p">,</span> <span class="n">type_of_object</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;Function to format a list of query strings, by extracting only the meaningful part.</span>
+<span class="sd">		    </span>
+<span class="sd">		    Args:</span>
+<span class="sd">		       old_list (str[]): The list of queries to format.</span>
+<span class="sd">		       type_of_object (str[]): The query type, that can be &#39;LOCATION&#39; or &#39;TIMESTAMP&#39;</span>
+<span class="sd">		    </span>
+<span class="sd">		    Returns:</span>
+<span class="sd">		       formatted_list (str[]): The formatted list of queries.</span>
+<span class="sd">		</span>
+<span class="sd">		&quot;&quot;&quot;</span>
+		<span class="n">start_position</span> <span class="o">=</span> <span class="mi">0</span>
+		<span class="n">formatted_list</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="k">if</span> <span class="n">type_of_object</span> <span class="o">==</span> <span class="s1">&#39;LOCATION&#39;</span><span class="p">:</span>
+			<span class="n">start_position</span> <span class="o">=</span> <span class="mi">32</span>
+			<span class="n">end_position</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+		<span class="k">elif</span> <span class="n">type_of_object</span> <span class="o">==</span> <span class="s1">&#39;TIMESTAMP&#39;</span><span class="p">:</span>
+			<span class="n">start_position</span> <span class="o">=</span> <span class="mi">1</span>
+			<span class="n">end_position</span> <span class="o">=</span> <span class="o">-</span><span class="mi">11</span>
+		<span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="n">old_list</span><span class="p">:</span>
+			<span class="n">formatted_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">obj</span><span class="p">[</span><span class="n">start_position</span><span class="p">:</span><span class="n">end_position</span><span class="p">])</span>
+		<span class="k">return</span> <span class="n">formatted_list</span></div>
+
+<div class="viewcode-block" id="SmachHelper.init_robot_pose"><a class="viewcode-back" href="../../../index.html#utilities.surveillance_robot.smach_helper.SmachHelper.init_robot_pose">[docs]</a>	<span class="nd">@staticmethod</span>
+	<span class="k">def</span> <span class="nf">init_robot_pose</span><span class="p">(</span><span class="n">point</span><span class="p">):</span>
+		<span class="sd">&quot;&quot;&quot;Function to initialize the robot 2D Pose, by using the service `robot/set_pose`.</span>
+<span class="sd">		    </span>
+<span class="sd">		    Args:</span>
+<span class="sd">		       point (Point): 2D Point representing the initial pose.</span>
+<span class="sd">	    </span>
+<span class="sd">	  &quot;&quot;&quot;</span>
+		<span class="c1"># Eventually, wait for the server to be initialised.</span>
+		<span class="n">rospy</span><span class="o">.</span><span class="n">wait_for_service</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">SERVER_SET_POSE</span><span class="p">)</span>
+		<span class="k">try</span><span class="p">:</span>
+			<span class="c1"># Call the service and set the current robot position.</span>
+			<span class="n">service</span> <span class="o">=</span> <span class="n">rospy</span><span class="o">.</span><span class="n">ServiceProxy</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">SERVER_SET_POSE</span><span class="p">,</span> <span class="n">SetPose</span><span class="p">)</span>
+			<span class="n">service</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>  <span class="c1"># None that the service `response` is not used.</span>
+			<span class="n">log_msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;[BUILD_MAP] = Setting initial robot position (</span><span class="si">{</span><span class="n">point</span><span class="o">.</span><span class="n">x</span><span class="si">}</span><span class="s1">, </span><span class="si">{</span><span class="n">point</span><span class="o">.</span><span class="n">y</span><span class="si">}</span><span class="s1">) to the `</span><span class="si">{</span><span class="n">anm</span><span class="o">.</span><span class="n">SERVER_SET_POSE</span><span class="si">}</span><span class="s1">` node.&#39;</span>
+			<span class="n">rospy</span><span class="o">.</span><span class="n">loginfo</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">tag_log</span><span class="p">(</span><span class="n">log_msg</span><span class="p">,</span> <span class="n">LOG_TAG</span><span class="p">))</span>
+		<span class="k">except</span> <span class="n">rospy</span><span class="o">.</span><span class="n">ServiceException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+			<span class="n">err_msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;Cannot set current robot position through `</span><span class="si">{</span><span class="n">anm</span><span class="o">.</span><span class="n">SERVER_SET_POSE</span><span class="si">}</span><span class="s1">` server. Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s1">&#39;</span>
+			<span class="n">rospy</span><span class="o">.</span><span class="n">logerr</span><span class="p">(</span><span class="n">anm</span><span class="o">.</span><span class="n">tag_log</span><span class="p">(</span><span class="n">err_msg</span><span class="p">,</span> <span class="n">LOG_TAG</span><span class="p">))</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Mohammad Al Horany.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
