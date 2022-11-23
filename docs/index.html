@@ -515,7 +515,9 @@ that already have the mutex.</p>
 <span class="target" id="module-map_builder"></span><p>This module implements the map_builder node, to simulate a map acquisition process.
 It publishes in the <cite>/map/connections</cite> topic every pair DOOR/LOCATION (DoorConnection msg) of the ontological map.</p>
 <dl class="simple">
-<dt>Publishes to:</dt><dd><p>/map/connections</p>
+<dt>Publishes to:</dt><dd><ul class="simple">
+<li><p>/map/connections</p></li>
+</ul>
 </dd>
 </dl>
 <dl class="py function">
@@ -536,11 +538,15 @@ It publishes in the <cite>/map/connections</cite> topic every pair DOOR/LOCATION
 The battery level can be changed randomly by setting its time parameter or manually by the user.
 This dual-behaviour can be switched by changing the parameter <cite>test/random_sense/active</cite>.</p>
 <dl class="simple">
-<dt>Publishes to:</dt><dd><p>/state/battery_low</p>
+<dt>Publishes to:</dt><dd><ul class="simple">
+<li><p>/state/battery_low</p></li>
+</ul>
 </dd>
-<dt>Service:</dt><dd><p>/state/get_pose
-/state/set_pose
-/state/charge_battery</p>
+<dt>Services:</dt><dd><ul class="simple">
+<li><p>/state/get_pose</p></li>
+<li><p>/state/set_pose</p></li>
+<li><p>/state/charge_battery</p></li>
+</ul>
 </dd>
 </dl>
 <dl class="py class">
@@ -619,7 +625,9 @@ It waits the time specified in the parameter charging_time before returning the 
 <span class="target" id="module-controller"></span><p>This module implements a node running the action server to simulate control motion of the robot.
 Given the waypoints, simulates robot movement passing through them.</p>
 <dl class="simple">
-<dt>Action server:</dt><dd><p>/motion/controller</p>
+<dt>Action server:</dt><dd><ul class="simple">
+<li><p>/motion/controller</p></li>
+</ul>
 </dd>
 </dl>
 <dl class="py class">
@@ -653,7 +661,9 @@ in the <cite>robot-state</cite> node.</p>
 <span class="target" id="module-planner"></span><p>This module implements a node running the action server to simulate motion planning.
 Given the goal point, plans a random number (range specified as a parameter) of waypoints to reach it.</p>
 <dl class="simple">
-<dt>Action server:</dt><dd><p>/motion/planner</p>
+<dt>Action server:</dt><dd><ul class="simple">
+<li><p>/motion/planner</p></li>
+</ul>
 </dd>
 </dl>
 <dl class="py class">
