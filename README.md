@@ -27,19 +27,18 @@ The indoor environment is composed of locations and doors.
  - If a location has not been visited for some time (parameter `urgencyThreshold`), it becomes urgent
 
 
-## Scenario ##
+### Scenario ###
 
 The scenario involves a robot deployed in a indoor environment for surveillance purposes.
 The robot's objective is to visit the different locations and stay there for some time.
 
-
 The robot behaviour can be divided into two phases.
 
- 1. Phase 1:
+ - Phase 1:
     - The robot spawns in his starting location.
     - The robot waits until it receives all the information to build the topological map.
  
- 2. Phase 2:
+ - Phase 2:
     - The robot moves in a new location, and waits for some times before to visit another location. (This behavior is repeated in a infinite loop).
     - If the battery get low, it leave the task it was doing to reach the charging location and waits some time to recharge.
 
@@ -67,8 +66,8 @@ In this repository, a surveillance policy that relies on the above rules has bee
 
 
 ``` 
-    # Decide and move to next location
-    [1] if there are urgent locations reachable:
+    # [1] Decide and move to next location
+    if there are urgent locations reachable:
       move to the most urgent
     else:
       move to a corridor
@@ -76,25 +75,17 @@ In this repository, a surveillance policy that relies on the above rules has bee
     check the location [2]
     
 
-    # Check the location if it is urgent
-    [2] if reached location is urgent:
+    # [2] Check the location if it is urgent
+    if reached location is urgent:
       check the location
     start again from [1]
 
 
-    # Battery low behaviour
-    [0] Always check the battery level:
-      if it is low:
-        move to charging location
-        recharge
-        start again from [1]
+    # [0] Battery checking:
+    if it is low:
+      move to charging location
+      recharge
+      start again from [1]
 
 ```
-
-[1] If there are urgent locations reachable, it goes to the most urgent
-      else, it goes to a corridor
-
-[2] If the reached location is urgent, it should check it before moving to a new location
-      else, it passes directly to the next location
-
-[3] If battery get low, it leaves any task it was doing and moves to the charging location to recharge. After that, it begins again from [1].
+Note that, while performing [1] or [2], it is always aware of the battery level. Thus, if the battery is low, the [0] algorithm cancels the activity it was doing. 
