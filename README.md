@@ -88,4 +88,4 @@ In this repository, a surveillance policy that relies on the above rules has bee
       start again from [1]
 
 ```
-Note that, while performing [1] or [2], it is always aware of the battery level. Thus, if the battery is low, the [0] algorithm cancels the activity it was doing. 
+Note that, while performing [1] or [2], it is always aware of the battery level. Moreover, if the battery is low, the [0] algorithm cancels the activity it was doing. 
