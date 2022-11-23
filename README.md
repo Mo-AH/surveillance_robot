@@ -7,7 +7,7 @@ indoor environment for surveillance purposes.
 
 ---
 
-## Introduction ##
+### Introduction ###
 
 This software is ROS-based, written in python and in particular it uses:
   - [smach](http://wiki.ros.org/smach) state machine to simulate the robot behaviour
