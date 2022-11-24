@@ -96,6 +96,7 @@ The full documentation can be found [here](https://Mo-AH.github.io/surveillance_
 ![sequence_diagram](https://user-images.githubusercontent.com/91679281/203868067-1aaa2c30-93bb-4eab-866e-c3edf35ddefa.png)
 
 ### States diagram ###
+![states_diagram drawio](https://user-images.githubusercontent.com/91679281/203871623-20364fd2-2646-4bc9-aca6-3f416d9bb0f7.png)
 
 ---
 
