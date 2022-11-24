@@ -86,7 +86,7 @@ SERVER_SET_POSE = 'state/set_pose'
 #  BATTERY
 # ---------------------------------------------------------
 # The name of the topic where the battery state is published.
-TOPIC_BATTERY_LOW = 'state/get_battery'
+TOPIC_BATTERY_LOW = 'state/battery_level'
 # The name of the service to recharge the battery
 SERVER_CHARGE = 'state/charge_battery'
 # The delay between changes of battery levels, i.e., high/low.

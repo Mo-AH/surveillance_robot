@@ -86,14 +86,19 @@ Note that, while performing `[1]` or `[2]`, it is always aware of the battery le
 [smach](http://wiki.ros.org/smach) - State machine library to simulate the robot behaviour.
 
 
-
 The full documentation can be found [here](https://Mo-AH.github.io/surveillance_robot/).
+
+### Components diagram ###
+
+### Temporal diagram ###
+
+### Sequence diagram ###
 
 ---
 
 ## How to Run ##
 
-Thi software is developed with a [ROS Noetic](http://wiki.ros.org/noetic) environment and you need to have a ROS workspace initialized in order to run the simulation. Moreover you should have installed:
+This software is developed with a [ROS Noetic](http://wiki.ros.org/noetic) environment and you need to have a ROS workspace initialized in order to run the simulation. Moreover you should have installed:
   - [ARMOR Server](https://github.com/EmaroLab/armor), a ROS integration to manipulate online OWL ontologies, which can be installed by following the instructions in the README.
   - [armor_py_api](https://github.com/EmaroLab/armor_py_api), a library to simplify the python calls to the ARMOR Server, which can be installed by following the instructions in the README.
   - [xterm](https://wiki.archlinux.org/title/Xterm), a terminal simulator, which can be installed by running from the terminal `$ sudo apt install -y xterm`.
@@ -102,12 +107,41 @@ After that, follow those steps:
   1. In the `src` folder of your ROS workspace, clone this repository by running `git clone https://github.com/Mo-AH/surveillance_robot`
   2. Move first to `src/surveillance_robot/scripts` and then to `src/surveillance_robot/utilities/surveillance_robot` and run a `chmod +x <script_name>.py` for each Python module in both folders.
   3. Build the ROS workspace by running `catkin_make` in its root folder.
-  4. Launch the simulation by running `roslaunch surveillance_robot simulation.launch`
+  4. Now, you can launch the simulation in two different modes:
+      - Changing the battery state manually with a terminal interface, by running `roslaunch surveillance_robot manual_batter.launch`.
+      - Changing the battery state randomly within the time interval specified in the corrisponding parameter, by running `roslaunch surveillance_robot random_battery.launch`.
+      
 
-You should now see something like this:
+### Parameters ###
 
-***figura***
+There are some parameters that are setted by default, but they can be changed to meet some specification:
 
+  - `test/random_sense/active` it defines the battery mode: True for randomly change the state, False to change the state manually.
+  - `test/random_sense/battery_time` when random mode is active, this parameter specifies the time interval within which the state will be changed.
+  - `test/plan_points` it's an interval that defines the number of points of a plan.
+  - `test/plan_time` it's an interval that defines the time duration of the planner.
+  - `test/motion_time` it's an interval that defines the time duration of the controller.
+  - `test/checking_time` it's a number that defines the time required for the check of a location.
+  - `test/charging_time` it's a number that defines the time required to recharge the battery.
+  - `state/initial_pose` it's a x-y coordinate that represents the initial position of the robot.
+  - `config/environment_size` it contains the maximum coordinate both for x/y-axis.
+
+Other parameters regarding the ontology, such as starting location, charging location or connections list, can be changed directly in the `architecture_name_mapper.py` module.
+
+### Running Simulation ###
+
+### System limitations and possible improvements ##
+
+## Author and Credits ##
+
+The software has been developed starting from the [arch_skeleton](https://github.com/buoncubi/arch_skeleton) repository, created by prof. Luca Buoncompagni. In particular, the following python modules has been used almost as they were, with only some small edit:
+  - `robot_state`
+  - `planner`
+  - `controller`
+  - `action_client_helper`
+
+Author: _Mohammad Al Horany_
+Email: _s5271212@studenti.unige.it_
 
 
 

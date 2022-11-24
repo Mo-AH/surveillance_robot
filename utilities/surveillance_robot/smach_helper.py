@@ -458,7 +458,7 @@ class SmachHelper():
 					self.doors_list.append(msg.door)
 
 			# Log message
-			log_msg = f'[BUILD_MAP] = Connection acquired: Location {msg.location} has Door {msg.door} + '
+			log_msg = f'[BUILD_MAP] = Connection acquired: Location {msg.location} has Door {msg.door}.'
 			rospy.loginfo(anm.tag_log(log_msg, LOG_TAG))
 
 		# The empty message represents the end of the acquiring process
