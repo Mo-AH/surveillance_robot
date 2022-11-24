@@ -14,7 +14,7 @@ indoor environment for surveillance purposes.
 
 In this assignment, we are considering a 2D environment made of 4 rooms and 3 corridors, that could be like the one shown in the figure (which is also the default one).
 
-***FIGURA***
+![default_environment](https://user-images.githubusercontent.com/91679281/203867615-f3655f83-87aa-480c-9f89-6022ed4af79a.png)
 
 The indoor environment is composed of locations and doors.
  - A room is a location with just one door
@@ -42,7 +42,7 @@ The time duration of those tasks are considered as ros parameters.
 Moreover, when robot's battery is not low, it should move among locations with 2 basic rules:
  - It should mainly stay on corridors.
  - If a reachable room has not been visited for some times it should visit it.
- - 
+
 There are a lot of ways for achieving a surveillance behaviour and a set of assumptions should be made:
  - The environment has no obstacles.
  - The environment does not change in time.
@@ -90,9 +90,12 @@ The full documentation can be found [here](https://Mo-AH.github.io/surveillance_
 
 ### Components diagram ###
 
-### Temporal diagram ###
+![component_diagram](https://user-images.githubusercontent.com/91679281/203868060-07eac4a6-41d4-48bb-b6a8-51ac289e9a0c.png)
 
 ### Sequence diagram ###
+![sequence_diagram](https://user-images.githubusercontent.com/91679281/203868067-1aaa2c30-93bb-4eab-866e-c3edf35ddefa.png)
+
+### States diagram ###
 
 ---
 
@@ -132,7 +135,9 @@ Other parameters regarding the ontology, such as starting location, charging loc
 
 ### System limitations and possible improvements ##
 
-## Author and Credits ##
+---
+
+## Credits ##
 
 The software has been developed starting from the [arch_skeleton](https://github.com/buoncubi/arch_skeleton) repository, created by prof. Luca Buoncompagni. In particular, the following python modules has been used almost as they were, with only some small edit:
   - `robot_state`
