@@ -146,8 +146,9 @@ The software has been developed starting from the [arch_skeleton](https://github
   - `controller`
   - `action_client_helper`
 
-Author: _Mohammad Al Horany_
-Email: _s5271212@studenti.unige.it_
+_Author_: Mohammad Al Horany
+
+_Email_: s5271212@studenti.unige.it
 
 
 
