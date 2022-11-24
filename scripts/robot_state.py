@@ -10,12 +10,12 @@ The battery level can be changed randomly by setting its time parameter or manua
 This dual-behaviour can be switched by changing the parameter `test/random_sense/active`.
 
 Publishes to:
-    /state/battery_low
+    - /state/battery_low
 
-Service:
-    /state/get_pose
-    /state/set_pose
-    /state/charge_battery
+Services:
+    - /state/get_pose
+    - /state/set_pose
+    - /state/charge_battery
 
 """
 

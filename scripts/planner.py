@@ -10,7 +10,7 @@ This module implements a node running the action server to simulate motion plann
 Given the goal point, plans a random number (range specified as a parameter) of waypoints to reach it.
     
 Action server:
-    /motion/planner
+    - /motion/planner
 
 """
 

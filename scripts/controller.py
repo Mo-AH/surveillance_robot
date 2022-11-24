@@ -9,7 +9,7 @@ This module implements a node running the action server to simulate control moti
 Given the waypoints, simulates robot movement passing through them.
 
 Action server:
-    /motion/controller
+    - /motion/controller
 
 """
 

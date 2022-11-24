@@ -9,7 +9,7 @@ This module implements the map_builder node, to simulate a map acquisition proce
 It publishes in the `/map/connections` topic every pair DOOR/LOCATION (DoorConnection msg) of the ontological map.
 
 Publishes to:
-  /map/connections
+  - /map/connections
 
 
 """
