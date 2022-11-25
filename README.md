@@ -100,7 +100,8 @@ Taking apart the `ARMOR Server`, which is used by `smach_robot` to update and re
  - `planner`: node in charge of providing a plan, consisting in a `Point` list, given a target location. For doing so, it implements an Action Server that uses `Plan.action`, which interacts with `robot_state`.
  
  - `controller`: node in charge of simulating the motion of the robot. Given a plan, it follows the points path to reach a target location. For doing so, it implements an Action Server that uses `Control.action`, which interacts with `robot-state`.
- 
+
+---
 
 ### Sequence diagram ###
 
@@ -117,6 +118,7 @@ Apart from `map_builder`, which once finished the trasmission of connections exi
 
 ***Note***: in the diagram, when the `robot_state` notify the battery low, the interactions of the `smach_robot` with the `planner` and the `controller` to reach the charging location before actually recharge have been omitted.
 
+---
 
 ### States diagram ###
 ![states_diagram drawio](https://user-images.githubusercontent.com/91679281/203871623-20364fd2-2646-4bc9-aca6-3f416d9bb0f7.png)
@@ -137,12 +139,13 @@ When the motion is finished (i.e. it reached the target location) by the `CONTRO
  
  Note that, except for the `CHARGE` state, all other states pass to the `REASONER` when the battery is low (`battery_low` transition), leaving their task uncompleted.
 
+---
 
 ## Repository Structure
 
 ### Package files
 
-This repository contains a ROS package named `surveillance_robot` that includes the following resources.
+This repository contains a ROS package named `surveillance_robot` that, besides this README, includes the following resources.
  - [CMakeList.txt](CMakeList.txt): File to configure this package.
  - [package.xml](package.xml): File to configure this package.
  - [setup.py](setup.py): File to `import` python modules from the `utilities` folder into the 
@@ -150,7 +153,7 @@ This repository contains a ROS package named `surveillance_robot` that includes 
  - [launcher/](launcher/): Contains the configurations to launch this package.
     - [manual_battery.launch](launcher/manual_battery.launch): It launches this package allowing 
        to change the battery state with a keyboard-based interface.
-    - [random_batter.launch](launcher/random_batter.launch): It launches this package with 
+    - [random_battery.launch](launcher/random_battery.launch): It launches this package with 
       a random-based change of battery state.
  - [msg/](msg/): It contains the custom message exchanged through ROS topics.
     - [Point.msg](msg/Point.msg): It is the message representing a 2D point.
@@ -178,7 +181,8 @@ This repository contains a ROS package named `surveillance_robot` that includes 
       of each *node*, *topic*, *server*, *actions* and *parameters* used in this architecture.
     - [action_client_helper.py](scripts/action_client_helper.py): It defines a class to simplify the interaction with an action server.
     - [smach_helper.py](scripts/smach_helper.py): It defines a class to simplify state machine computations.
- - [docs/](docs/): It contains the documentation of the repository
+ - [docs/](docs/): It contains the documentation of the repository.
+ - [ontologies/](ontologies/): It contains the ontology used in this software.
 
 ### Further specifications on ROS Custom Messages, Services and Actions ###
 For the development of the simulation, some custom `msg`, `srv` and `action` have been created:
@@ -200,13 +204,12 @@ For the development of the simulation, some custom `msg`, `srv` and `action` hav
 This software is developed with a [ROS Noetic](http://wiki.ros.org/noetic) environment and you need to have a ROS workspace initialized in order to run the simulation. Moreover you should have installed:
   - [roslaunch](http://wiki.ros.org/roslaunch), to launch the package.
   - [rospy](http://wiki.ros.org/rospy), to use python with ROS.
-  - [actionlib](http://wiki.ros.org/actionlib/DetailedDescription) to define
+  - [actionlib](http://wiki.ros.org/actionlib/DetailedDescription), to define
 [SimpleActionServer](http://docs.ros.org/en/jade/api/actionlib/html/classactionlib_1_1simple__action__server_1_1SimpleActionServer.html#a2013e3b4a6a3cb0b77bb31403e26f137) and use [SimpleActionClient](https://docs.ros.org/en/api/actionlib/html/classactionlib_1_1simple__action__client_1_1SimpleActionClient.html).
   - [ARMOR Server](https://github.com/EmaroLab/armor), a ROS integration to manipulate online OWL ontologies, which can be installed by following the instructions in the README.
   - [armor_py_api](https://github.com/EmaroLab/armor_py_api), a library to simplify the python calls to the ARMOR Server, which can be installed by following the instructions in the README.
   - [xterm](https://wiki.archlinux.org/title/Xterm), a terminal simulator, which can be installed by running from the terminal `sudo apt install -y xterm`.
   - [smach](http://wiki.ros.org/smach), a state machine library to simulate the robot behaviour, which can be installed by running from the terminal `sudo apt-get install ros-noetic-smach-ros`
-
 
 
 ---
@@ -215,7 +218,7 @@ This software is developed with a [ROS Noetic](http://wiki.ros.org/noetic) envir
 
 ### How to Run ###
 
-Once assured that all the dependecies are installed, follow those steps:
+Once assured that all dependecies are installed, follow those steps:
   1. In the `src` folder of your ROS workspace, clone this repository by running `git clone https://github.com/Mo-AH/surveillance_robot`
   2. Move first to `src/surveillance_robot/scripts` and then to `src/surveillance_robot/utilities/surveillance_robot` and run a `chmod +x <script_name>.py` for each Python module in both folders.
   3. Build the ROS workspace by running `catkin_make` in its root folder.
