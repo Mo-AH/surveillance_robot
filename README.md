@@ -5,12 +5,15 @@
 In this repository is developed a ROS-based simulation of a robot in a
 indoor environment for surveillance purposes.
 
+It relies on [smach](http://wiki.ros.org/smach), a state machine library to simulate the robot behaviour.
+
+The full documentation can be found [here](https://Mo-AH.github.io/surveillance_robot/).
+
 ---
 
 ## Scenario ##
 
 ### Environment ###
-
 
 In this assignment, we are considering a 2D environment made of 4 rooms and 3 corridors, that could be like the one shown in the figure (which is also the default one).
 
@@ -23,7 +26,7 @@ The indoor environment is composed of locations and doors.
  - If a location has not been visited for some time (parameter `urgencyThreshold`), it becomes urgent
 
 
-For the environment representation, it has been used the [topological_map](https://github.com/buoncubi/topological_map) ontology, which has been previously created with Protegé. In particular, the [file](https://github.com/Mo-AH/surveillance_robot/tree/main/ontologies) used in this software is completely without the Abox.
+For the environment representation, it has been used the [topological_map](https://github.com/buoncubi/topological_map) ontology, which was previously created with Protegé. In particular, the [file](https://github.com/Mo-AH/surveillance_robot/tree/main/ontologies) used in this software is completely without the Abox.
 
 ### Assumptions and Behaviour ###
 
@@ -36,8 +39,6 @@ The robot behaviour can be devided into two phases:
  - Phase 2:
     - The robot moves in a new location, and waits some time before to visit another location. (This behavior is repeated in a infinite loop).
     - If the battery get low, it leave the task it was doing to reach the charging location and waits some time to recharge.
-
-The time duration of those tasks are considered as ros parameters.
 
 Moreover, when robot's battery is not low, it should move among locations with 2 basic rules:
  - It should mainly stay on corridors.
@@ -83,30 +84,73 @@ Note that, while performing `[1]` or `[2]`, it is always aware of the battery le
 
 ## Software Architecture ##
 
-[smach](http://wiki.ros.org/smach) - State machine library to simulate the robot behaviour.
-
-
-The full documentation can be found [here](https://Mo-AH.github.io/surveillance_robot/).
 
 ### Components diagram ###
+The connections among the nodes are described in the following image.
 
 ![component_diagram](https://user-images.githubusercontent.com/91679281/203868060-07eac4a6-41d4-48bb-b6a8-51ac289e9a0c.png)
 
+We can see how the `smach_robot`, which implements the behaviour of the robot using a state machine, is the central entity of the entire architecture and is better described after, in the states diagram.
+Taking apart the `ARMOR Server`, which is used by `smach_robot` to update and reason about the ontology, the other nodes simulate specific components of the robot:
+
+ - `robot_state`: node in charge of managing the battery level and the pose of the robot. It provides two services for the pose (`GetPose.srv`, `SetPose.srv`), a publisher for the battery level (`Bool.msg`) and a service to recharge the battery (`SetBool.srv`).
+ 
+ - `map_builder`: node in charge of providing the data informations to build the map. It publish in the topic `/map/connections` messages of type `DoorConnection.msg`, which consist in a pair of Door and Location. When it finishes trasmitting all the connections, its job is done and so it exits. 
+ 
+ - `planner`: node in charge of providing a plan, consisting in a `Point` list, given a target location. For doing so, it implements an Action Server that uses `Plan.action`, which interacts with `robot_state`.
+ 
+ - `controller`: node in charge of simulating the motion of the robot. Given a plan, it follows the points path to reach a target location. For doing so, it implements an Action Server that uses `Control.action`, which interacts with `robot-state`.
+ 
+
 ### Sequence diagram ###
+
 ![sequence_diagram](https://user-images.githubusercontent.com/91679281/203868067-1aaa2c30-93bb-4eab-866e-c3edf35ddefa.png)
+
+This diagram represents the sequential flow of the architecture. 
+
+In particular, it shows that the nodes always active are `smach_robot`, expectable as it is the central entity that calls the other components, and the `robot_state`, because it always keeps track of the battery level.
+
+Apart from `map_builder`, which once finished the trasmission of connections exits, the other nodes are active only when the `smach_robot` call them:
+
+ - `ARMOR Server`: initially, when we are defining the ontology objects and properties (Abox), and later after every location change of the robot.
+
+- `planner` and `controller`: when the robot has to reach a location.
+
+Note that in this diagram, when the `robot_state` notify the battery low, the interactions of the `smach_robot` with the `planner` and the `controller` to reach the charging location before actually recharge have been omitted.
+
 
 ### States diagram ###
 ![states_diagram drawio](https://user-images.githubusercontent.com/91679281/203871623-20364fd2-2646-4bc9-aca6-3f416d9bb0f7.png)
 
+In this diagram is shown the robot behaviour, implemented through a state machine in the `smach_robot` node. The node relies on the use of `smach_helper` module, which decouples the state machine interface from the computations processes.
+
+After having built the map in the `BUILD MAP` state, it passes to the loop of the Phase 2, which begins with `REACH LOCATION`, that is a sub state machine and its inner states are:
+ - `REASONER` : queries the ontology about reachable and urgent locations to decide the next location. If the battery is low, the next location is always the charging one.
+ - `PLANNER`: it calls the planner action server to get the plan for the next location.
+ - `CONTROLLER`: it calls the controller action server to actuate the plan and simulate the motion of the robot. When it has reached the location, it uploads the ontology.
+ 
+When the motion is finished (i.e. it reached the target location) by the `CONTROLLER` node, there are 3 possible transitions:
+ - 'location_urgent_reached': the location should be checked and so it passes to the `CHECK_LOCATION` state.
+ - `location_not_urgent_reached': the location shouldn't be checked so it passes to the `REASONER` state to decide next location.
+ - `charging_location_reached`: the robot has reached the charging location so it passes to the `CHARGE` state to recharge the battery.
+ 
+ The states `CHECK_LOCATION` and `CHARGE` simply returns to the `REASONER` state when they have terminate their tasks.
+ 
+ Note that, except for the `CHARGE` state, all other states pass to the `REASONER` when the battery is low (`battery_low` transition), leaving their task uncompleted.
+
+
 ---
 
-## How to Run ##
+## Simulation ##
+
+### How to Run ###
 
 This software is developed with a [ROS Noetic](http://wiki.ros.org/noetic) environment and you need to have a ROS workspace initialized in order to run the simulation. Moreover you should have installed:
   - [ARMOR Server](https://github.com/EmaroLab/armor), a ROS integration to manipulate online OWL ontologies, which can be installed by following the instructions in the README.
   - [armor_py_api](https://github.com/EmaroLab/armor_py_api), a library to simplify the python calls to the ARMOR Server, which can be installed by following the instructions in the README.
-  - [xterm](https://wiki.archlinux.org/title/Xterm), a terminal simulator, which can be installed by running from the terminal `$ sudo apt install -y xterm`.
-  
+  - [xterm](https://wiki.archlinux.org/title/Xterm), a terminal simulator, which can be installed by running from the terminal `sudo apt install -y xterm`.
+  - [smach](http://wiki.ros.org/smach), a state machine library to simulate the robot behaviour, which can be installed by running from the terminal `sudo apt-get install ros-noetic-smach-ros`
+
 After that, follow those steps:
   1. In the `src` folder of your ROS workspace, clone this repository by running `git clone https://github.com/Mo-AH/surveillance_robot`
   2. Move first to `src/surveillance_robot/scripts` and then to `src/surveillance_robot/utilities/surveillance_robot` and run a `chmod +x <script_name>.py` for each Python module in both folders.
@@ -120,19 +164,40 @@ After that, follow those steps:
 
 There are some parameters that are setted by default, but they can be changed to meet some specification:
 
-  - `test/random_sense/active` it defines the battery mode: True for randomly change the state, False to change the state manually.
-  - `test/random_sense/battery_time` when random mode is active, this parameter specifies the time interval within which the state will be changed.
-  - `test/plan_points` it's an interval that defines the number of points of a plan.
-  - `test/plan_time` it's an interval that defines the time duration of the planner.
-  - `test/motion_time` it's an interval that defines the time duration of the controller.
-  - `test/checking_time` it's a number that defines the time required for the check of a location.
-  - `test/charging_time` it's a number that defines the time required to recharge the battery.
-  - `state/initial_pose` it's a x-y coordinate that represents the initial position of the robot.
-  - `config/environment_size` it contains the maximum coordinate both for x/y-axis.
+ - `config/environment_size`: It represents the environment boundaries as a list of two float
+   numbers, i.e., `[x_max, y_max]`. The environment will have the `x`-th coordinate spanning
+   in the interval `[0, x_max)`, while the `y`-th coordinate in `[0, y_max)`.
+
+ - `state/initial_pose`: It represents the initial robot pose as a list of two float numbers, 
+   i.e., `[x, y]`. This pose should be within the `environmet_size`.
+
+ - `test/plan_points`: It represents the number of via points in a plan, and it should be
+   a list of two integer numbers `[min_n, max_n]`. A random value within such an interval will be chosen to simulate plans of different lengths.
+
+ - `test/plan_time`: It represents the time required to compute the next via point of the 
+   plan, and it should be a list of two float numbers, i.e., `[min_time, max_time]` in seconds. 
+   A random value within such an interval will be chosen to simulate the time required to 
+   compute the next via points.
+
+ - `test/motion_time`: It represents the time required to reach the next via point, and 
+   it should be a list of two float numbers, i.e., `[min_time, max_time]` in seconds. A random
+   value within such an interval will be chosen to simulate the time required to reach the next 
+   via points. 
+
+  - `test/random_sense/active`:  It is a boolean value that defines the battery mode: True for randomly change the state, False to change the state manually.
+  
+  -  `test/random_sense/battery_time`: It indicates the time passed within battery state changes 
+   (i.e., low/high). It should be a list of two float numbers, i.e., `[min_time, max_time]` in 
+   seconds, and the time passed between changes in battery levels will be a random value within 
+   such an interval.
+   
+  - `test/checking_time`: It indicates the time required for the check of a location, should be an float number.
+  
+  - `test/charging_time`:  It indicates the time required to recharge the battery, should be a float number.
 
 Other parameters regarding the ontology, such as starting location, charging location or connections list, can be changed directly in the `architecture_name_mapper.py` module.
 
-### Running Simulation ###
+### Simulation in action ###
 
 ### System limitations and possible improvements ##
 
@@ -147,7 +212,6 @@ The software has been developed starting from the [arch_skeleton](https://github
   - `action_client_helper`
 
 _Author_: Mohammad Al Horany
-
 _Email_: s5271212@studenti.unige.it
 
 
