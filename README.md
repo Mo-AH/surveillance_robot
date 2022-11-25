@@ -137,9 +137,52 @@ When the motion is finished (i.e. it reached the target location) by the `CONTRO
  
  Note that, except for the `CHARGE` state, all other states pass to the `REASONER` when the battery is low (`battery_low` transition), leaving their task uncompleted.
 
-### ROS Custom Messages, Services and Actions ###
+
+## Repository Structure
+
+### Package files
+
+This repository contains a ROS package named `surveillance_robot` that includes the following resources.
+ - [CMakeList.txt](CMakeList.txt): File to configure this package.
+ - [package.xml](package.xml): File to configure this package.
+ - [setup.py](setup.py): File to `import` python modules from the `utilities` folder into the 
+   files in the `script` folder. 
+ - [launcher/](launcher/): Contains the configurations to launch this package.
+    - [manual_battery.launch](launcher/manual_battery.launch): It launches this package allowing 
+       to change the battery state with a keyboard-based interface.
+    - [random_batter.launch](launcher/random_batter.launch): It launches this package with 
+      a random-based change of battery state.
+ - [msg/](msg/): It contains the custom message exchanged through ROS topics.
+    - [Point.msg](msg/Point.msg): It is the message representing a 2D point.
+    - [DoorConnection.msg](msg/DoorConnection.msg): It is the message representing a connection  among a door and a location.
+ - [srv/](srv/): It Contains the definition of each server used by this software.
+    - [GetPose.srv](srv/GetPose.srv): It defines the request and response to get the current 
+      robot position.
+    - [SetPose.srv](srv/SetPose.srv): It defines the request and response to set the current 
+      robot position.
+ - [action/](action/): It contains the definition of each action server used by this software.
+    - [Plan.action](action/Plan.action): It defines the goal, feedback and results concerning 
+      motion planning.
+    - [Control.action](action/Control.action): It defines the goal, feedback and results 
+      concerning motion controlling.
+ - [scripts/](scripts/): It contains the implementation of each software components.
+    - [map_builder.py](scripts/map_builder.py): It is a dummy implementation of the map acquiring process algorithm.
+    - [smach_robot.py](scripts/gesture.py): It implements the state machine of the robot.
+    - [robot_state.py](scripts/robot_state.py): It implements the robot state:
+      current position and battery level.
+    - [planner.py](scripts/planner.py): It is a dummy implementation of a motion planner.
+    - [controller.py](scripts/controller.py): It is a dummy implementation of a motion 
+      controller.
+ - [utilities/surveillance_robot/](utilities/surveillance_robot/): It contains auxiliary python files, which are exploited by the files in the `scripts` folder.
+    - [architecture_name_mapper.py](scripts/architecture_name_mapper.py): It contains the name 
+      of each *node*, *topic*, *server*, *actions* and *parameters* used in this architecture.
+    - [action_client_helper.py](scripts/action_client_helper.py): It defines a class to simplify the interaction with an action server.
+    - [smach_helper.py](scripts/smach_helper.py): It defines a class to simplify state machine computations.
+ - [docs/](docs/): It contains the documentation of the repository
+
+### Further specifications on ROS Custom Messages, Services and Actions ###
 For the development of the simulation, some custom `msg`, `srv` and `action` have been created:
- - `Point.msg`: it represents a point in the 2D space and is compose of two `float` numbers (i.e. x/y coordinates)
+ - `Point.msg`: it represents a point in the 2D space and is composed of two `float` numbers (i.e. x/y coordinates).
  - `DoorConnection.msg`: it represents a connection between a door and a location and is composed of two `string` objects.
  - `GetPose.srv`: a service to get the current pose of the robot, with an empty request and a `Point` as response.
  - `SetPose.srv`: a service to set the current pose of the robot, with a `Point` as request and an empty response.
@@ -152,19 +195,27 @@ For the development of the simulation, some custom `msg`, `srv` and `action` hav
    - *result*: the final `Point` representing the goal location when the plan has been followed.
    - *feedback*: last point reached so far.
 
+### Dependencies
+
+This software is developed with a [ROS Noetic](http://wiki.ros.org/noetic) environment and you need to have a ROS workspace initialized in order to run the simulation. Moreover you should have installed:
+  - [roslaunch](http://wiki.ros.org/roslaunch), to launch the package.
+  - [rospy](http://wiki.ros.org/rospy), to use python with ROS.
+  - [actionlib](http://wiki.ros.org/actionlib/DetailedDescription) to define
+[SimpleActionServer](http://docs.ros.org/en/jade/api/actionlib/html/classactionlib_1_1simple__action__server_1_1SimpleActionServer.html#a2013e3b4a6a3cb0b77bb31403e26f137) and use [SimpleActionClient](https://docs.ros.org/en/api/actionlib/html/classactionlib_1_1simple__action__client_1_1SimpleActionClient.html).
+  - [ARMOR Server](https://github.com/EmaroLab/armor), a ROS integration to manipulate online OWL ontologies, which can be installed by following the instructions in the README.
+  - [armor_py_api](https://github.com/EmaroLab/armor_py_api), a library to simplify the python calls to the ARMOR Server, which can be installed by following the instructions in the README.
+  - [xterm](https://wiki.archlinux.org/title/Xterm), a terminal simulator, which can be installed by running from the terminal `sudo apt install -y xterm`.
+  - [smach](http://wiki.ros.org/smach), a state machine library to simulate the robot behaviour, which can be installed by running from the terminal `sudo apt-get install ros-noetic-smach-ros`
+
+
+
 ---
 
 ## Simulation ##
 
 ### How to Run ###
 
-This software is developed with a [ROS Noetic](http://wiki.ros.org/noetic) environment and you need to have a ROS workspace initialized in order to run the simulation. Moreover you should have installed:
-  - [ARMOR Server](https://github.com/EmaroLab/armor), a ROS integration to manipulate online OWL ontologies, which can be installed by following the instructions in the README.
-  - [armor_py_api](https://github.com/EmaroLab/armor_py_api), a library to simplify the python calls to the ARMOR Server, which can be installed by following the instructions in the README.
-  - [xterm](https://wiki.archlinux.org/title/Xterm), a terminal simulator, which can be installed by running from the terminal `sudo apt install -y xterm`.
-  - [smach](http://wiki.ros.org/smach), a state machine library to simulate the robot behaviour, which can be installed by running from the terminal `sudo apt-get install ros-noetic-smach-ros`
-
-After that, follow those steps:
+Once assured that all the dependecies are installed, follow those steps:
   1. In the `src` folder of your ROS workspace, clone this repository by running `git clone https://github.com/Mo-AH/surveillance_robot`
   2. Move first to `src/surveillance_robot/scripts` and then to `src/surveillance_robot/utilities/surveillance_robot` and run a `chmod +x <script_name>.py` for each Python module in both folders.
   3. Build the ROS workspace by running `catkin_make` in its root folder.
@@ -229,8 +280,3 @@ The software has been developed starting from the [arch_skeleton](https://github
 ***Author***: Mohammad Al Horany
 
 ***Email***: s5271212@studenti.unige.it
-
-
-
-
-
