@@ -286,8 +286,20 @@ We can appreciate how in the beginning the robot starts in the charging location
 
 ---
 
-### System limitations and possible improvements ##
+### Possible improvements ##
 
+Most of the system limitations are caused by the simulation nature of the software.
+For example, the planner and controller are implemented in a dummy way: the plan is computed with random points and the motion is only simulated, without having a real effect.
+Also, the map building is simulated by providing the connections between door and locations in a parameter before launching the software (`CONNECTION_LIST` variable in `architecture_name_mapper.py`).
+
+
+It could be improved in several ways:
+ - Implement a GUI interface to insert manually connections between location and doors.
+ - Making the robot aware of the urgents rooms not adjacent and, hence, implement a real planning algorithm that detect the best locations-path to follow for reaching such rooms.
+ - In the same way of the previous point, follow a locations-path when the recharging room is not adjacent.
+ - Implement a real battery management, so that it runs out proportionally to the number of motions and to the time passed.
+ - Implement the possibility of having multiple robots that cooperate together for the surveillance purpose.
+ - When checking a room, do something instead of just wasting time, for example look around for markers.
 
 
 
