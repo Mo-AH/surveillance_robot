@@ -133,8 +133,8 @@ After having built the map in the `BUILD MAP` state, it passes to the loop of th
  - `CONTROLLER`: it calls the controller action server to actuate the plan and simulate the motion of the robot. When it has reached the location, it uploads the ontology.
  
 When the motion is finished (i.e. it reached the target location) by the `CONTROLLER` node, there are 3 possible transitions:
- - 'location_urgent_reached': the location should be checked and so it passes to the `CHECK_LOCATION` state.
- - `location_not_urgent_reached': the location shouldn't be checked so it passes to the `REASONER` state to decide next location.
+ - `location_urgent_reached`: the location should be checked and so it passes to the `CHECK_LOCATION` state.
+ - `location_not_urgent_reached`: the location shouldn't be checked so it passes to the `REASONER` state to decide next location.
  - `charging_location_reached`: the robot has reached the charging location so it passes to the `CHARGE` state to recharge the battery.
  
  The states `CHECK_LOCATION` and `CHARGE` simply returns to the `REASONER` state when they have terminate their tasks.
@@ -300,7 +300,7 @@ It could be improved in several ways:
  - Implement a real battery management, so that it runs out proportionally to the number of motions and to the time passed.
  - Implement the possibility of having multiple robots that cooperate together for the surveillance purpose.
  - When checking a room, do something instead of just wasting time, for example look around for markers.
-
+ - When interrupting a task because of the battery low, memorize and continue it after having recharged the battery.
 
 
 
