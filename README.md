@@ -113,10 +113,9 @@ In particular, it shows that the nodes always active are `smach_robot`, expectab
 Apart from `map_builder`, which once finished the trasmission of connections exits, the other nodes are active only when the `smach_robot` call them:
 
  - `ARMOR Server`: initially, when we are defining the ontology objects and properties (Abox), and later after every location change of the robot.
-
 - `planner` and `controller`: when the robot has to reach a location.
 
-Note that in this diagram, when the `robot_state` notify the battery low, the interactions of the `smach_robot` with the `planner` and the `controller` to reach the charging location before actually recharge have been omitted.
+***Note***: in the diagram, when the `robot_state` notify the battery low, the interactions of the `smach_robot` with the `planner` and the `controller` to reach the charging location before actually recharge have been omitted.
 
 
 ### States diagram ###
@@ -211,8 +210,11 @@ The software has been developed starting from the [arch_skeleton](https://github
   - `controller`
   - `action_client_helper`
 
-_Author_: Mohammad Al Horany
-_Email_: s5271212@studenti.unige.it
+
+
+***Author***: Mohammad Al Horany
+
+***Email***: s5271212@studenti.unige.it
 
 
 
