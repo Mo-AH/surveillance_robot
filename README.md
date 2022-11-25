@@ -137,6 +137,20 @@ When the motion is finished (i.e. it reached the target location) by the `CONTRO
  
  Note that, except for the `CHARGE` state, all other states pass to the `REASONER` when the battery is low (`battery_low` transition), leaving their task uncompleted.
 
+### ROS Custom Messages, Services and Actions ###
+For the development of the simulation, some custom `msg`, `srv` and `action` have been created:
+ - `Point.msg`: it represents a point in the 2D space and is compose of two `float` numbers (i.e. x/y coordinates)
+ - `DoorConnection.msg`: it represents a connection between a door and a location and is composed of two `string` objects.
+ - `GetPose.srv`: a service to get the current pose of the robot, with an empty request and a `Point` as response.
+ - `SetPose.srv`: a service to set the current pose of the robot, with a `Point` as request and an empty response.
+ - `Plan.action`: an action to interact with the `planner` action server.
+   - *goal*: target location represented by a `Point`.
+   - *result*: plan, composed of a list of points, to follow in order to reach the target, given the current pose.
+   - *feedback*: list of `via_points` computed so far.
+ - `Control.action`: an action to interact with the `controller` action server.
+   - *goal*: the plan as a set of points to reach.
+   - *result*: the final `Point` representing the goal location when the plan has been followed.
+   - *feedback*: last point reached so far.
 
 ---
 
