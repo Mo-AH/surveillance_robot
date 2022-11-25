@@ -28,6 +28,8 @@ The indoor environment is composed of locations and doors.
 
 For the environment representation, it has been used the [topological_map](https://github.com/buoncubi/topological_map) ontology, which was previously created with Protegé. In particular, the [file](https://github.com/Mo-AH/surveillance_robot/tree/main/ontologies) used in this software is completely without the Abox.
 
+---
+
 ### Assumptions and Behaviour ###
 
 The robot behaviour can be devided into two phases:
@@ -226,6 +228,7 @@ Once assured that all dependecies are installed, follow those steps:
       - Changing the battery state manually with a terminal interface, by running `roslaunch surveillance_robot manual_batter.launch`.
       - Changing the battery state randomly within the time interval specified in the corrisponding parameter, by running `roslaunch surveillance_robot random_battery.launch`.
       
+---
 
 ### Parameters ###
 
@@ -258,15 +261,36 @@ There are some parameters that are setted by default, but they can be changed to
    seconds, and the time passed between changes in battery levels will be a random value within 
    such an interval.
    
-  - `test/checking_time`: It indicates the time required for the check of a location, should be an float number.
+  - `test/checking_time`: It indicates the time required for the check of a location, should be a float number.
   
   - `test/charging_time`:  It indicates the time required to recharge the battery, should be a float number.
 
 Other parameters regarding the ontology, such as starting location, charging location or connections list, can be changed directly in the `architecture_name_mapper.py` module.
 
-### Simulation in action ###
+---
+
+### Running code ###
+
+https://user-images.githubusercontent.com/91679281/203989104-5cc3af3d-70dd-43bb-9c64-53de3c273969.mp4
+
+In the video, there is the demonstration of the running code with the manual battery mode.
+ - In the main terminal, are printed the log messages of the state machine `smach_robot`.
+ - In the bottom left terminal, the node `map_builder` send the connections data and then terminate.
+ - In the bottom middle one that is covered at the beginning, are printed the log messages of the `ARMOR Server`.
+ - The one that covers the previous in the bottom middle, represents the `controller` node.
+ - In the bottom right, we find the `planner` node.
+ - In the right, we find the `robot_state` node which in this case provide the keyboard-interface to notify battery-state changes.
+
+We can appreciate how in the beginning the robot starts in the charging location, then it builds the map and finally begins the Phase 2 behaviour. Moreover, is shown that when the user notify the battery low, the state machine interrupts the task it was doing to reach the charging location and recharge.
+
+
+---
 
 ### System limitations and possible improvements ##
+
+
+
+
 
 ---
 
@@ -278,7 +302,7 @@ The software has been developed starting from the [arch_skeleton](https://github
   - `controller`
   - `action_client_helper`
 
-
+---
 
 ***Author***: Mohammad Al Horany
 
