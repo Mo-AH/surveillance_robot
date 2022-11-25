@@ -225,7 +225,7 @@ Once assured that all dependecies are installed, follow those steps:
   2. Move first to `src/surveillance_robot/scripts` and then to `src/surveillance_robot/utilities/surveillance_robot` and run a `chmod +x <script_name>.py` for each Python module in both folders.
   3. Build the ROS workspace by running `catkin_make` in its root folder.
   4. Now, you can launch the simulation in two different modes:
-      - Changing the battery state manually with a terminal interface, by running `roslaunch surveillance_robot manual_batter.launch`.
+      - Changing the battery state manually with a terminal interface, by running `roslaunch surveillance_robot manual_battery.launch`.
       - Changing the battery state randomly within the time interval specified in the corrisponding parameter, by running `roslaunch surveillance_robot random_battery.launch`.
       
 ---
