@@ -4,7 +4,6 @@
 
 In this repository is developed a ROS-based simulation of a robot in a
 indoor environment for surveillance purposes.
-
 It relies on [smach](http://wiki.ros.org/smach), a state machine library to simulate the robot behaviour.
 
 The full documentation can be found [here](https://Mo-AH.github.io/surveillance_robot/).
@@ -58,20 +57,12 @@ After having received the informations to build the map, it starts in a loop the
 The behaviour implemented in this repository follows the policy described in this pseudocode:
 
 ``` 
-    # [1] Decide and move to next location
+    # [1] Surveillance policy:
     if there are urgent locations reachable:
       move to the most urgent
+      check the location
     else:
       move to a corridor
-
-    check the location [2]
-    
-
-    # [2] Check the location if it is urgent
-    if reached location is urgent:
-      check the location
-    start again from [1]
-
 
     # [0] Battery checking:
     if battery is low:
@@ -80,7 +71,7 @@ The behaviour implemented in this repository follows the policy described in thi
       start again from [1]
 
 ```
-Note that, while performing `[1]` or `[2]`, it is always aware of the battery level. Moreover, if the battery is low, the `[0]` algorithm cancels the task it was doing. 
+Note that, while performing `[1]` , it is always aware of the battery level. Moreover, if the battery is low, the `[0]` algorithm cancels the task it was doing. 
 
 ---
 
@@ -294,6 +285,7 @@ Also, the map building is simulated by providing the connections between door an
 
 
 It could be improved in several ways:
+ - It may be more appropriate pass directly to the planner with the charging location as target, instead of passing by the reasoner.
  - Implement a GUI interface to insert manually connections between location and doors.
  - Making the robot aware of the urgents rooms not adjacent and, hence, implement a real planning algorithm that detect the best locations-path to follow for reaching such rooms.
  - In the same way of the previous point, follow a locations-path when the recharging room is not adjacent.
